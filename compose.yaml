@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - GIN_MODE=release
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+  db:
+    image: mysql:8.4
+    restart: always
+    ports:
+      - "3306:3306"
+    expose:
+      - "3306"
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes  # Not a prod configuration
+      - MYSQL_DATABASE=urlshortener
+    volumes:
+#      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+#volumes:
+#    db_data:
