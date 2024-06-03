@@ -15,7 +15,7 @@ COPY --from=builder /app/urlshortener /app/urlshortener
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=10s --retries=3 CMD wget --quiet --tries=1 --timeout=2 --spider\
-http://localhost:8080/api/v1/health || exit 1
+HEALTHCHECK --interval=10s --retries=3 \
+CMD wget --quiet --tries=1 --timeout=2 --spider http://localhost:8080/api/v1/health || exit 1
 
 CMD ["/app/urlshortener"]

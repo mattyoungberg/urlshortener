@@ -50,13 +50,15 @@ type UniqueIDGenerator interface {
 }
 
 type UniqueIDGeneratorImpl struct {
-	seq  uint32
-	lock sync.Mutex
-	cond *sync.Cond
+	seconds uint32
+	seq     uint32
+	lock    sync.Mutex
+	cond    *sync.Cond
 }
 
 func NewUniqueIDGenerator() *UniqueIDGeneratorImpl {
 	u := &UniqueIDGeneratorImpl{}
+	u.seconds = uint32(time.Now().Unix())
 	u.cond = sync.NewCond(&u.lock)
 	u.startSeqReset()
 	return u
@@ -71,9 +73,8 @@ func (uidg *UniqueIDGeneratorImpl) GenerateUniqueID() [idByteLen]byte {
 		uidg.cond.Wait()
 	}
 
-	seconds := uint32(time.Now().Unix())
 	id := [idByteLen]byte{}
-	err := encodeID(&id, seconds, uidg.seq)
+	err := encodeID(&id, uidg.seconds, uidg.seq)
 	if err != nil {
 		panic(err)
 	}
@@ -102,6 +103,7 @@ func (uidg *UniqueIDGeneratorImpl) startSeqReset() {
 	go func() {
 		for _ = range ticker.C {
 			uidg.lock.Lock()
+			uidg.seconds = uint32(time.Now().Unix())
 			uidg.seq = 0
 			uidg.cond.Broadcast()
 			uidg.lock.Unlock()
@@ -150,7 +152,6 @@ func main() {
 	idg := NewUniqueIDGenerator()
 
 	dsn := "root@tcp(db:3306)/urlshortener"
-	//dsn := "root@tcp(localhost:3306)/urlshortener"
 	repo := buildSQLRepo("mysql", dsn)
 
 	//repo := &InMemoryURLRepo{make([]InMemoryUrlRepoRecord, 100000)}

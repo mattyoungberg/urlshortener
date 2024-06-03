@@ -56,8 +56,19 @@ func buildSQLRepo(driver string, dataSourceName string) *SQLRepo {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
-		log.Fatal("unable to ping database", err)
+	// Ping the database using exponential backoff
+	s := 1
+	for {
+		err = db.PingContext(ctx)
+		if err == nil {
+			break
+		} else {
+			if s == 32 {
+				log.Fatal("unable to ping database", err)
+			}
+			time.Sleep(time.Duration(s) * time.Second)
+			s *= 2
+		}
 	}
 
 	db.SetConnMaxLifetime(time.Minute * 3)

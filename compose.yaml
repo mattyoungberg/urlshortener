@@ -10,6 +10,8 @@ services:
       - "8080:8080"
     depends_on:
       - db
+    cpu_count: 4
+    cpu_shares: 2048
   db:
     image: mysql:8.4
     restart: always
@@ -21,8 +23,6 @@ services:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes  # Not a prod configuration
       - MYSQL_DATABASE=urlshortener
     volumes:
-#      - db_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-
-#volumes:
-#    db_data:
+    cpu_count: 8
+    cpu_shares: 4096

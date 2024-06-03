@@ -11,16 +11,11 @@ const data = new SharedArray('data', function () {
 export const options = {
     scenarios: {
         'write-test': {
-            executor: 'ramping-vus',
-            startVUs: 1,
-            stages: [
-                { duration: '10s', target: 10 },
-                { duration: '30s', target: 10 },
-                { duration: '10s', target: 0 },
-            ],
-            gracefulStop: '1s',
-        },
-    },
+            executor: 'shared-iterations',
+            vus: 8,
+            iterations: data.length,
+        }
+    }
 };
 
 export default function () {
