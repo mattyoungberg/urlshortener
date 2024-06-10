@@ -44,7 +44,8 @@ func (imur *InMemoryURLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string, 
 }
 
 type SQLRepo struct {
-	db *sql.DB
+	db         *sql.DB
+	insertStmt *sql.Stmt
 }
 
 func buildSQLRepo(driver string, dataSourceName string) *SQLRepo {
@@ -75,7 +76,12 @@ func buildSQLRepo(driver string, dataSourceName string) *SQLRepo {
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(10)
 
-	return &SQLRepo{db}
+	insertStmt, err := db.PrepareContext(context.Background(), "INSERT INTO urls (id, long_url, short_url) VALUES (?, ?, ?)")
+	if err != nil {
+		log.Fatal("unable to prepare insert statement", err)
+	}
+
+	return &SQLRepo{db, insertStmt}
 }
 
 func (sr *SQLRepo) GetShortURL(longUrl string) (string, error) {
@@ -109,6 +115,6 @@ func (sr *SQLRepo) GetLongURL(shortUrl string) (string, error) {
 func (sr *SQLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string, shortUrl string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	_, err := sr.db.ExecContext(ctx, "INSERT INTO urls (id, long_url, short_url) VALUES (?, ?, ?)", id[:], longUrl, shortUrl)
+	_, err := sr.insertStmt.ExecContext(ctx, id[:], longUrl, shortUrl)
 	return err
 }
