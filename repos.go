@@ -9,9 +9,8 @@ import (
 )
 
 type InMemoryUrlRepoRecord struct {
-	id       [idByteLen]byte
-	longUrl  string
-	shortUrl string
+	id      [idByteLen]byte
+	longUrl string
 }
 
 // Not efficient. Just for testing.
@@ -20,31 +19,32 @@ type InMemoryURLRepo struct { // For use in testing, not robust at all
 	records []InMemoryUrlRepoRecord
 }
 
-func (imur *InMemoryURLRepo) GetShortURL(longUrl string) (string, error) {
+func (imur *InMemoryURLRepo) GetId(longUrl string) ([idByteLen]byte, error) {
 	for _, record := range imur.records {
 		if record.longUrl == longUrl {
-			return record.shortUrl, nil
+			return record.id, nil
 		}
 	}
-	return "", nil
+	return [idByteLen]byte{}, nil
 }
 
-func (imur *InMemoryURLRepo) GetLongURL(shortUrl string) (string, error) {
+func (imur *InMemoryURLRepo) GetLongURL(id [idByteLen]byte) (string, error) {
 	for _, record := range imur.records {
-		if record.shortUrl == shortUrl {
+		if record.id == id {
 			return record.longUrl, nil
 		}
 	}
 	return "", nil
 }
 
-func (imur *InMemoryURLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string, shortUrl string) error {
-	imur.records = append(imur.records, InMemoryUrlRepoRecord{id, longUrl, shortUrl})
+func (imur *InMemoryURLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string) error {
+	imur.records = append(imur.records, InMemoryUrlRepoRecord{id, longUrl})
 	return nil
 }
 
 type SQLRepo struct {
 	db         *sql.DB
+	getIdStmt  *sql.Stmt
 	insertStmt *sql.Stmt
 }
 
@@ -76,33 +76,36 @@ func buildSQLRepo(driver string, dataSourceName string) *SQLRepo {
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(10)
 
-	insertStmt, err := db.PrepareContext(context.Background(), "INSERT INTO urls (id, long_url, short_url) VALUES (?, ?, ?)")
+	insertStmt, err := db.PrepareContext(context.Background(), "INSERT INTO urls (id, long_url) VALUES (?, ?)")
 	if err != nil {
 		log.Fatal("unable to prepare insert statement", err)
 	}
 
-	return &SQLRepo{db, insertStmt}
+	getIdStmt, err := db.PrepareContext(context.Background(), "SELECT id FROM urls WHERE long_url = ?")
+	if err != nil {
+		log.Fatal("unable to prepare get id statement", err)
+	}
+
+	return &SQLRepo{db, getIdStmt, insertStmt}
 }
 
-func (sr *SQLRepo) GetShortURL(longUrl string) (string, error) {
-	var shortUrl string
-	//ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	//defer cancel()
-	err := sr.db.QueryRowContext(context.Background(), "SELECT short_url FROM urls WHERE long_url = ?", longUrl).Scan(&shortUrl)
+func (sr *SQLRepo) GetId(longUrl string) ([idByteLen]byte, error) {
+	var id [idByteLen]byte
+	err := sr.getIdStmt.QueryRowContext(context.Background(), longUrl).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil // No short URL exists
+			return [idByteLen]byte{}, nil // No id exists
 		}
-		return "", err // An error occurred
+		return [idByteLen]byte{}, err // An error occurred
 	}
-	return shortUrl, nil // Successfully found
+	return id, nil // Successfully found
 }
 
-func (sr *SQLRepo) GetLongURL(shortUrl string) (string, error) {
+func (sr *SQLRepo) GetLongURL(id [idByteLen]byte) (string, error) {
 	var longUrl string
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	err := sr.db.QueryRowContext(ctx, "SELECT long_url FROM urls WHERE short_url = ?", shortUrl).Scan(&longUrl)
+	err := sr.db.QueryRowContext(ctx, "SELECT long_url FROM urls WHERE id = ?", id).Scan(&longUrl)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil // No long URL exists
@@ -112,9 +115,9 @@ func (sr *SQLRepo) GetLongURL(shortUrl string) (string, error) {
 	return longUrl, nil // Successfully found
 }
 
-func (sr *SQLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string, shortUrl string) error {
+func (sr *SQLRepo) StoreURLRecord(id [idByteLen]byte, longUrl string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	_, err := sr.insertStmt.ExecContext(ctx, id[:], longUrl, shortUrl)
+	_, err := sr.insertStmt.ExecContext(ctx, id[:], longUrl)
 	return err
 }

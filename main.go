@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 const idByteLen = 7
 const shortURLLen = 10
-const base62Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" // ascending order
 
 func encodeBase62(id [idByteLen]byte) string {
 	// Each word is 11 bits, drop bit in the 33rd place (which is zero)
@@ -39,10 +40,30 @@ func encodeBase62(id [idByteLen]byte) string {
 	return string(shortUrl)
 }
 
+func decodeBase62(shortUrl string) [idByteLen]byte {
+	firstWord := strings.Index(base62Chars, string(shortUrl[0]))*62 + strings.Index(base62Chars, string(shortUrl[1]))
+	secondWord := strings.Index(base62Chars, string(shortUrl[2]))*62 + strings.Index(base62Chars, string(shortUrl[3]))
+	thirdWord := strings.Index(base62Chars, string(shortUrl[4]))*62 + strings.Index(base62Chars, string(shortUrl[5]))
+	fourthWord := strings.Index(base62Chars, string(shortUrl[6]))*62 + strings.Index(base62Chars, string(shortUrl[7]))
+	fifthWord := strings.Index(base62Chars, string(shortUrl[8]))*62 + strings.Index(base62Chars, string(shortUrl[9]))
+
+	id := [idByteLen]byte{}
+
+	id[0] = byte(firstWord >> 3)
+	id[1] = byte((firstWord&0x7)<<5) | byte(secondWord>>6)
+	id[2] = byte((secondWord&0x3f)<<2) | byte(thirdWord>>9)
+	id[3] = byte(thirdWord >> 1)
+	id[4] = byte((thirdWord&0x1)<<6) | byte(fourthWord>>5)
+	id[5] = byte((fourthWord&0x1f)<<3) | byte(fifthWord>>8)
+	id[6] = byte(fifthWord)
+
+	return id
+}
+
 type URLRepo interface {
-	GetShortURL(longUrl string) (string, error)
-	GetLongURL(shortUrl string) (string, error)
-	StoreURLRecord(id [idByteLen]byte, longUrl string, shortUrl string) error
+	GetId(longUrl string) ([idByteLen]byte, error) // Zeroed out if not found
+	GetLongURL(id [idByteLen]byte) (string, error) // Empty string if not found
+	StoreURLRecord(id [idByteLen]byte, longUrl string) error
 }
 
 type UniqueIDGenerator interface {
@@ -117,31 +138,31 @@ type URLShortenerApp struct {
 }
 
 func (app *URLShortenerApp) shorten(longUrl string) (string, error) {
-	var shortUrl string
+	var id [idByteLen]byte
 	var err error
 
 	// See if shortUrl already exists
-	shortUrl, err = app.urlRepo.GetShortURL(longUrl)
+	id, err = app.urlRepo.GetId(longUrl)
 	if err != nil {
 		return "", err
 	}
 
 	// If not, generate and save
-	if shortUrl == "" { // Generate short url, reassign
-		id := app.idGenerator.GenerateUniqueID()
-		shortUrl = encodeBase62(id)
-		err = app.urlRepo.StoreURLRecord(id, longUrl, shortUrl)
+	if id == [idByteLen]byte{} { // Generate short url, reassign
+		id = app.idGenerator.GenerateUniqueID()
+		err = app.urlRepo.StoreURLRecord(id, longUrl)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	// return
-	return shortUrl, nil
+	return encodeBase62(id), nil
 }
 
 func (app *URLShortenerApp) redirect(shortUrl string) (string, error) {
-	longUrl, err := app.urlRepo.GetLongURL(shortUrl)
+	id := decodeBase62(shortUrl)
+	longUrl, err := app.urlRepo.GetLongURL(id)
 	if err != nil {
 		return "", err
 	}

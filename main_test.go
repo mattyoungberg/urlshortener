@@ -16,7 +16,7 @@ func TestEncodeBase62_Zeroes(t *testing.T) {
 	encoded := encodeBase62(idArr)
 
 	for _, char := range encoded {
-		if char != 'A' { // Implies that base62 algo encodes 0x0 w/ A instead of 0
+		if char != '0' { // Implies that base62 algo encodes 0x0 w/ A instead of 0
 			t.Error("Encoded short URL should be all 'A's")
 		}
 	}
@@ -26,9 +26,27 @@ func TestEncodeBase62_Zeroes(t *testing.T) {
 	}
 }
 
+func TestDecodeBase62_Zeroes(t *testing.T) {
+	var idArr [idByteLen]byte
+
+	for i := 0; i < idByteLen; i++ {
+		idArr[i] = 0x00
+	}
+
+	encoded := encodeBase62(idArr)
+
+	decoded := decodeBase62(encoded)
+
+	for i := 0; i < idByteLen; i++ {
+		if decoded[i] != idArr[i] {
+			t.Error("Decoded id should be the same as the original id")
+		}
+	}
+}
+
 func TestEncodeBase62_Max(t *testing.T) {
 	var idArr [idByteLen]byte
-	expected := "hBhBhBhBhB" // 2047 for each 11-bit word, or 2^11 - 1
+	expected := "X1X1X1X1X1" // 2047 for each 11-bit word, or 2^11 - 1
 
 	for i := 0; i < idByteLen; i++ {
 		idArr[i] = 0xff
@@ -44,9 +62,29 @@ func TestEncodeBase62_Max(t *testing.T) {
 	}
 }
 
+func TestDecodeBase62_Max(t *testing.T) {
+	var idArr [idByteLen]byte
+
+	for i := 0; i < idByteLen; i++ {
+		idArr[i] = 0xff
+	}
+
+	// Mask the padding bit
+	idArr[4] = idArr[4] & 0b01111111
+
+	encoded := encodeBase62(idArr)
+	decoded := decodeBase62(encoded)
+
+	for i := 0; i < idByteLen; i++ {
+		if decoded[i] != idArr[i] {
+			t.Error("Decoded id should be the same as the original id")
+		}
+	}
+}
+
 func TestEncodeBase62_ManualCalc1(t *testing.T) {
 	num := 0b01110010001011011101100010010110001011111111010001010001
-	expected := "OtOSE0YuRz"
+	expected := "EjEI4qOkHp"
 	id := [idByteLen]byte{}
 
 	id[0] = byte(num >> 48)
@@ -61,12 +99,34 @@ func TestEncodeBase62_ManualCalc1(t *testing.T) {
 
 	if expected != actual {
 		t.Fail()
+	}
+}
+
+func TestDecodeBase62_ManualCalc1(t *testing.T) {
+	num := 0b01110010001011011101100010010110001011111111010001010001
+	id := [idByteLen]byte{}
+
+	id[0] = byte(num >> 48)
+	id[1] = byte(num >> 40)
+	id[2] = byte(num >> 32)
+	id[3] = byte(num >> 24)
+	id[4] = byte(num >> 16)
+	id[5] = byte(num >> 8)
+	id[6] = byte(num)
+
+	actual := encodeBase62(id)
+	decoded := decodeBase62(actual)
+
+	for i := 0; i < idByteLen; i++ {
+		if decoded[i] != id[i] {
+			t.Error("Decoded id should be the same as the original id")
+		}
 	}
 }
 
 func TestEncodeBase62_ManualCalc2(t *testing.T) {
 	num := 0b01010011100001010011010100000000010111011111100111100110
-	expected := "KwFXIRPdH0"
+	expected := "Am5N8HFT7q"
 	id := [idByteLen]byte{}
 
 	id[0] = byte(num >> 48)
@@ -84,9 +144,31 @@ func TestEncodeBase62_ManualCalc2(t *testing.T) {
 	}
 }
 
+func TestDecodeBase62_ManualCalc2(t *testing.T) {
+	num := 0b01010011100001010011010100000000010111011111100111100110
+	id := [idByteLen]byte{}
+
+	id[0] = byte(num >> 48)
+	id[1] = byte(num >> 40)
+	id[2] = byte(num >> 32)
+	id[3] = byte(num >> 24)
+	id[4] = byte(num >> 16)
+	id[5] = byte(num >> 8)
+	id[6] = byte(num)
+
+	actual := encodeBase62(id)
+	decoded := decodeBase62(actual)
+
+	for i := 0; i < idByteLen; i++ {
+		if decoded[i] != id[i] {
+			t.Error("Decoded id should be the same as the original id")
+		}
+	}
+}
+
 func TestEncodeBase62_ManualCalc3(t *testing.T) {
 	num := 0b01101111010110001101110110100111011110001101000011001000
-	expected := "OWZpNpdUDO"
+	expected := "EMPfDfTK3E"
 	id := [idByteLen]byte{}
 
 	id[0] = byte(num >> 48)
@@ -101,6 +183,28 @@ func TestEncodeBase62_ManualCalc3(t *testing.T) {
 
 	if expected != actual {
 		t.Fail()
+	}
+}
+
+func TestDecodeBase62_ManualCalc3(t *testing.T) {
+	num := 0b01101111010110001101110110100111011110001101000011001000
+	id := [idByteLen]byte{}
+
+	id[0] = byte(num >> 48)
+	id[1] = byte(num >> 40)
+	id[2] = byte(num >> 32)
+	id[3] = byte(num >> 24)
+	id[4] = byte(num >> 16)
+	id[5] = byte(num >> 8)
+	id[6] = byte(num)
+
+	actual := encodeBase62(id)
+	decoded := decodeBase62(actual)
+
+	for i := 0; i < idByteLen; i++ {
+		if decoded[i] != id[i] {
+			t.Error("Decoded id should be the same as the original id")
+		}
 	}
 }
 
