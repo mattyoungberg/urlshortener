@@ -12,6 +12,7 @@ services:
       - db
     cpu_count: 4
     cpu_shares: 2048
+    mem_limit: 8g
   db:
     image: mysql:8.4
     restart: always
@@ -30,5 +31,7 @@ services:
       - MYSQL_DATABASE=urlshortener
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./my.cnf:/etc/mysql/my.cnf
     cpu_count: 8
     cpu_shares: 4096
+    mem_limit: 32g
