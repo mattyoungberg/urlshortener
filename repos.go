@@ -90,14 +90,16 @@ func buildSQLRepo(driver string, dataSourceName string) *SQLRepo {
 }
 
 func (sr *SQLRepo) GetId(longUrl string) ([idByteLen]byte, error) {
+	var idSlice []byte
 	var id [idByteLen]byte
-	err := sr.getIdStmt.QueryRowContext(context.Background(), longUrl).Scan(&id)
+	err := sr.getIdStmt.QueryRowContext(context.Background(), longUrl).Scan(&idSlice)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return [idByteLen]byte{}, nil // No id exists
 		}
 		return [idByteLen]byte{}, err // An error occurred
 	}
+	copy(id[:], idSlice)
 	return id, nil // Successfully found
 }
 
@@ -105,7 +107,7 @@ func (sr *SQLRepo) GetLongURL(id [idByteLen]byte) (string, error) {
 	var longUrl string
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	err := sr.db.QueryRowContext(ctx, "SELECT long_url FROM urls WHERE id = ?", id).Scan(&longUrl)
+	err := sr.db.QueryRowContext(ctx, "SELECT long_url FROM urls WHERE id = ?", id[:]).Scan(&longUrl)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil // No long URL exists
