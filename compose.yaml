@@ -10,11 +10,11 @@ services:
       - "8080:8080"
     depends_on:
       - db
-    cpu_count: 4
+    cpu_count: 2
     cpu_shares: 2048
-    mem_limit: 8g
+    mem_limit: 4g
   db:
-    image: mysql:8.4
+    image: percona:8.0
     restart: always
     ports:
       - "3306:3306"
@@ -29,9 +29,10 @@ services:
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes  # Not a prod configuration
       - MYSQL_DATABASE=urlshortener
+      - INIT_ROCKSDB=1
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./my.cnf:/etc/mysql/my.cnf
-    cpu_count: 8
+      - ./my.cnf:/etc/my.cnf
+    cpu_count: 6
     cpu_shares: 4096
     mem_limit: 32g
