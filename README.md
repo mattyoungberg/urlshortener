@@ -148,82 +148,96 @@ volumes we can't handle, we put off creating the unique ID until we can do so sa
 
 ## Database
 
-For the sake of benchmarking, I'm deploying this alongside an instance of Percona Server, which is a fork of MySQL.
-Admittedly, I probably would've gone with a vanilla instance of MySQL if they had exposed the ability to change the
-underlying storage engine from InnoDB to RocksDB as easily as Percona did (which simply required setting an environment
-variable). RocksDB is a key-value store that is optimized for write-heavy workloads on SSDs, and as I profiled both the
-app and  the queries the app issued against the database, those writes ended up taking the bulk of the response time.
-With an index on the `longUrl` column of the table, the read speed using RocksDB wasn't notably slower than InnoDB, but
-write speed notably improved.
+For the sake of benchmarking, I'm deploying this alongside an instance of Percona
+Server, which is a fork of MySQL. Admittedly, I probably would've gone with a vanilla
+instance of MySQL if they had exposed the ability to change the underlying storage
+engine from InnoDB to RocksDB as easily as Percona did (which simply required setting an
+environment variable). RocksDB is a key-value store that is optimized for write-heavy
+workloads on SSDs, and as I profiled both the app and  the queries the app issued
+against the database, those writes ended up taking the bulk of the response time. With
+an index on the `longUrl` column of the table, the read speed using RocksDB wasn't
+notably slower than InnoDB, but write speed notably improved.
 
 In the end, my choice of DB was based on hitting the read/write speeds outlined in the 
 [Performance Goals](#performance-goals) section.
 
-## Testing
+## Benchmarking
 
 I'm running these benchmarks on my own personal machine:
 
 - **OS**: Ubuntu 22.04 LTS
-- **Processor**: 12th Gen Intel Core i7-12700K (12 cores, 20 threads). No overclocking enabled.
+- **Processor**: 12th Gen Intel Core i7-12700K (12 cores, 20 threads). No overclocking
+enabled.
 - **Memory**: 64GB DDR5 @ 5200MHz
 - **Storage**: 500GB NVMe SSD, 1900MB/s writes, 2400MB/s reads
 
-However, it's worth noting that I'm sandboxing the Docker containers. The app only gets access to 2 cores and 4GB of
-memory, while the DB gets 6 cores and 32GB of memory.
+However, it's worth noting that I'm sandboxing the Docker containers. The app only gets
+access to 2 cores and 4GB of memory, while the DB gets 6 cores and 32GB of memory.
 
 Docker compose was used for deployment.
 
-K6 was used for load testing. You can see the [writeTest.js](./writeTest.js) and [readTest.js](./readTest.js) in the
-root of the project to see how those were ran. The read test would happen after seeding the app via
-[seed.py](./seed.py).
+K6 was used for load testing. You can see the [writeTest.js](./benchmarks/writeTest.js)
+and [readTest.js](./benchmarks/readTest.js) in the root of the project to see how those
+were ran. The read test would happen after seeding the app via
+[seed.py](./benchmarks/seed.py).
 
 ## How Did I Do?
 
 ### Write speed: 1,160 URLs per second
 
-For a single-instance, single-db app, I was still able to achieve average write speeds of ~970 URLs per second for the
-first 100,000 urls. This is fairly close to the goal of 1,160 URLs per second. I'm not quite sure what the internal
-storage structure is for RocksDB, but speed seemed to correspond to some kind of logarithmic growth, so I'd assume that
-it'd grow similar to InnoDB, which uses B+ trees to structure tables.
+For a single-instance, single-db app, I was still able to achieve average write speeds
+of ~970 URLs per second for the first 100,000 urls. This is fairly close to the goal of
+1,160 URLs per second. I'm not quite sure what the internal storage structure is for
+RocksDB, but speed seemed to correspond to some kind of logarithmic growth, so I'd
+assume that it'd grow similar to InnoDB, which uses B+ trees to structure tables.
 
-Since the benchmarks were set forth assuming a distributed app and a distributed database, I'll call it an unfair fight
-and conclude saying I achieved fairly close results here.
+Since the benchmarks were set forth assuming a distributed app and a distributed
+database, I'll call it an unfair fight and conclude saying I achieved fairly close
+results here.
 
 ### Read speed: 11,600 URLs per second
 
-The app+db was able to knock this out of the water: my read test is able to handle ~15,500 reads per second leveraging
-an index on the `longUrl` column. This is quite bit more than the 11,600 URLs per second that I was aiming for, even
-with a storage engine optimized for writes.
+The app+db was able to knock this out of the water: my read test is able to handle
+~15,500 reads per second leveraging an index on the `longUrl` column. This is quite bit
+more than the 11,600 URLs per second that I was aiming for, even with a storage engine
+optimized for writes.
 
 ### 10 years of URL generation
 
-As covered in [Unique ID Encoding Scheme](#unique-id-encoding-scheme), the service can generate unique IDs for almost
-a century. This is well beyond the 10 years that I was aiming for.
+As covered in [Unique ID Encoding Scheme](#unique-id-encoding-scheme), the service can
+generate unique IDs for almost a century. This is well beyond the 10 years that I was
+aiming for.
 
 
 ### Storage under 36.5TB
 
-I admittedly don't know how to measure this that well, but I can do some "back of the napkin" calculations:
+I admittedly don't know how to measure this that well, but I can do some "back of the
+napkin" calculations:
 
-A single record in my `urls` table takes two values: 1) a seven-byte unique identifier, and 2) a URL that, on average,
-will be 100 characters in length.
+A single record in my `urls` table takes two values: 1) a seven-byte unique identifier,
+and 2) a URL that, on average, will be 100 characters in length.
 
-Assuming that the URL adheres to ASCII encoding, the size of a given record would be 107 bytes (without accounting for
-indexes). If we're generating 100 million URLs a day, that's 10,700,000,000 bytes, or 10.7GB a day. Over the course of a
-year, that's 3.9TB. Over the course of 10 years, that's 39TB.
+Assuming that the URL adheres to ASCII encoding, the size of a given record would be
+107 bytes (without accounting for indexes). If we're generating 100 million URLs a day,
+that's 10,700,000,000 bytes, or 10.7GB a day. Over the course of a year, that's 3.9TB.
+Over the course of 10 years, that's 39TB.
 
-That's about 3TB over the ask, but I also understand that underlying storage engines potentially compress data, and
-RocksDB also advertises its superior ability to compress data compared to InnoDB.
+That's about 3TB over the ask, but I also understand that underlying storage engines
+potentially compress data, and RocksDB also advertises its superior ability to compress
+data compared to InnoDB.
 
-(I did some cursory queries both when the table was empty and when it was seeded w/ 100,000 records. Both times it
-claimed its size was ~23MB of data... So color me confused.)
+(I did some cursory queries both when the table was empty and when it was seeded w/
+100,000 records. Both times it claimed its size was ~23MB of data... So color me
+confused.)
 
-I would assume that, with compression, the storage of the table would require slightly less than 36.5TB, and so I'll
-call that a (nuanced) win. If anyone knows how to estimate this better, please reach out to me.
+I would assume that, with compression, the storage of the table would require slightly
+less than 36.5TB, and so I'll call that a (nuanced) win. If anyone knows how to estimate
+this better, please reach out to me.
 
-I'm not exactly sure where the _System Design_ book got its storage benchmark from, since it was designing for an 8 byte
-identifier and a 100 byte URL. It's somewhat implied that these scheme would keep it under 36.5TB, but since I designed
-an ID that uses one less byte, the math doesn't quite add up.
+I'm not exactly sure where the _System Design_ book got its storage benchmark from,
+since it was designing for an 8 byte identifier and a 100 byte URL. It's somewhat
+implied that these scheme would keep it under 36.5TB, but since I designed an ID that
+uses one less byte, the math doesn't quite add up.
 
 ## Limitations
 
@@ -239,6 +253,9 @@ the ID.
 
 ## Sources
 
-- [The System Design Interview](https://tinyurl.com/4ktudfyd) by Alex Xu
+- [The System Design Interview](https://a.co/d/aoXvzqe) by Alex Xu
 - [Coding Challenges: Build Your Own URL Shortener](https://tinyurl.com/3mh6k2xw) by
 John Crickett
+- [Efficient MySQL Performance](https://a.co/d/5LIGU9d) by Daniel Nichter
+- [How I write HTTP Web Services after Eight Years](https://youtu.be/rWBSMsLG8po) by Mat
+Ryer

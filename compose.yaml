@@ -9,7 +9,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     cpu_count: 2
     cpu_shares: 2048
     mem_limit: 4g
@@ -31,8 +32,8 @@ services:
       - MYSQL_DATABASE=urlshortener
       - INIT_ROCKSDB=1
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./my.cnf:/etc/my.cnf
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/my.cnf:/etc/my.cnf
     cpu_count: 6
     cpu_shares: 4096
     mem_limit: 32g

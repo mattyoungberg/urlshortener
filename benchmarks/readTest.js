@@ -23,9 +23,9 @@ export default function () {
     const shortUrl = combo["shortUrl"]
     const longUrlExpected = combo["longUrl"]
 
-    const url = new URL('http://localhost:8080/api/v1/shortUrl');
+    const url = new URL('http://localhost:8080/api/v1/redirect');
     url.searchParams.append('shortUrl', shortUrl);
-    const res = http.get(url.toString(), { tags: { name: 'api/v1/shortUrl' } });
+    const res = http.get(url.toString(), { tags: { name: 'api/v1/redirect' } });
 
     const result = check(res, {
         'HTTP Status 200': (r) => r.status === 200,

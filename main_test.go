@@ -7,7 +7,7 @@ import (
 )
 
 func TestEncodeBase62_Zeroes(t *testing.T) {
-	var idArr [idByteLen]byte
+	var idArr UrlId
 
 	for i := 0; i < idByteLen; i++ {
 		idArr[i] = 0x00
@@ -27,7 +27,7 @@ func TestEncodeBase62_Zeroes(t *testing.T) {
 }
 
 func TestDecodeBase62_Zeroes(t *testing.T) {
-	var idArr [idByteLen]byte
+	var idArr UrlId
 
 	for i := 0; i < idByteLen; i++ {
 		idArr[i] = 0x00
@@ -45,7 +45,7 @@ func TestDecodeBase62_Zeroes(t *testing.T) {
 }
 
 func TestEncodeBase62_Max(t *testing.T) {
-	var idArr [idByteLen]byte
+	var idArr UrlId
 	expected := "X1X1X1X1X1" // 2047 for each 11-bit word, or 2^11 - 1
 
 	for i := 0; i < idByteLen; i++ {
@@ -63,7 +63,7 @@ func TestEncodeBase62_Max(t *testing.T) {
 }
 
 func TestDecodeBase62_Max(t *testing.T) {
-	var idArr [idByteLen]byte
+	var idArr UrlId
 
 	for i := 0; i < idByteLen; i++ {
 		idArr[i] = 0xff
@@ -85,7 +85,7 @@ func TestDecodeBase62_Max(t *testing.T) {
 func TestEncodeBase62_ManualCalc1(t *testing.T) {
 	num := 0b01110010001011011101100010010110001011111111010001010001
 	expected := "EjEI4qOkHp"
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -104,7 +104,7 @@ func TestEncodeBase62_ManualCalc1(t *testing.T) {
 
 func TestDecodeBase62_ManualCalc1(t *testing.T) {
 	num := 0b01110010001011011101100010010110001011111111010001010001
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -127,7 +127,7 @@ func TestDecodeBase62_ManualCalc1(t *testing.T) {
 func TestEncodeBase62_ManualCalc2(t *testing.T) {
 	num := 0b01010011100001010011010100000000010111011111100111100110
 	expected := "Am5N8HFT7q"
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -146,7 +146,7 @@ func TestEncodeBase62_ManualCalc2(t *testing.T) {
 
 func TestDecodeBase62_ManualCalc2(t *testing.T) {
 	num := 0b01010011100001010011010100000000010111011111100111100110
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -169,7 +169,7 @@ func TestDecodeBase62_ManualCalc2(t *testing.T) {
 func TestEncodeBase62_ManualCalc3(t *testing.T) {
 	num := 0b01101111010110001101110110100111011110001101000011001000
 	expected := "EMPfDfTK3E"
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -188,7 +188,7 @@ func TestEncodeBase62_ManualCalc3(t *testing.T) {
 
 func TestDecodeBase62_ManualCalc3(t *testing.T) {
 	num := 0b01101111010110001101110110100111011110001101000011001000
-	id := [idByteLen]byte{}
+	id := UrlId{}
 
 	id[0] = byte(num >> 48)
 	id[1] = byte(num >> 40)
@@ -209,7 +209,7 @@ func TestDecodeBase62_ManualCalc3(t *testing.T) {
 }
 
 func TestUniqueIDGeneratorImpl_GenerateUniqueID(t *testing.T) {
-	uidg := NewUniqueIDGenerator()
+	uidg := newUniqueIDGenerator()
 
 	id1 := uidg.GenerateUniqueID()
 	id2 := uidg.GenerateUniqueID()
@@ -222,8 +222,8 @@ func TestUniqueIDGeneratorImpl_GenerateUniqueID(t *testing.T) {
 }
 
 func TestUniqueIDGeneratorImpl_GenerateUniqueID_GuaranteeAllUniqueIn1Second(t *testing.T) {
-	set := make(map[[idByteLen]byte]bool)
-	uidg := NewUniqueIDGenerator()
+	set := make(map[UrlId]bool)
+	uidg := newUniqueIDGenerator()
 
 	done := make(chan bool)
 	go func() {
@@ -247,8 +247,8 @@ func TestUniqueIDGeneratorImpl_GenerateUniqueID_GuaranteeAllUniqueIn1Second(t *t
 }
 
 func TestUniqueIDGeneratorImpl_GenerateUniqueID_Guarantee100000Unique(t *testing.T) {
-	set := make(map[[idByteLen]byte]bool)
-	uidg := NewUniqueIDGenerator()
+	set := make(map[UrlId]bool)
+	uidg := newUniqueIDGenerator()
 
 	for i := 0; i < 100000; i++ {
 		id := uidg.GenerateUniqueID()
@@ -261,10 +261,10 @@ func TestUniqueIDGeneratorImpl_GenerateUniqueID_Guarantee100000Unique(t *testing
 
 func TestURLShortenerApp_shorten(t *testing.T) {
 	app := URLShortenerApp{
-		urlRepo: &InMemoryURLRepo{
-			records: make([]InMemoryUrlRepoRecord, 0),
+		urlRepo: &InMemoryUrlDb{
+			records: make([]InMemoryUrlDbRecord, 0),
 		},
-		idGenerator: NewUniqueIDGenerator(),
+		idGenerator: newUniqueIDGenerator(),
 	}
 
 	shortUrl, err := app.shorten("www.google.com")
@@ -280,10 +280,10 @@ func TestURLShortenerApp_shorten(t *testing.T) {
 func TestURLShortenerApp_redirect(t *testing.T) {
 	longUrl := "www.google.com"
 	app := URLShortenerApp{
-		urlRepo: &InMemoryURLRepo{
-			records: make([]InMemoryUrlRepoRecord, 1),
+		urlRepo: &InMemoryUrlDb{
+			records: make([]InMemoryUrlDbRecord, 1),
 		},
-		idGenerator: NewUniqueIDGenerator(),
+		idGenerator: newUniqueIDGenerator(),
 	}
 
 	shortUrl, err := app.shorten(longUrl)
@@ -303,10 +303,10 @@ func TestURLShortenerApp_redirect(t *testing.T) {
 
 func TestURLShortener_shorten_SameForSameLongURL(t *testing.T) {
 	app := URLShortenerApp{
-		urlRepo: &InMemoryURLRepo{
-			records: make([]InMemoryUrlRepoRecord, 0),
+		urlRepo: &InMemoryUrlDb{
+			records: make([]InMemoryUrlDbRecord, 0),
 		},
-		idGenerator: NewUniqueIDGenerator(),
+		idGenerator: newUniqueIDGenerator(),
 	}
 
 	longUrl := "www.google.com"
@@ -326,7 +326,7 @@ func TestURLShortener_shorten_SameForSameLongURL(t *testing.T) {
 }
 
 func TestEncodeID_Zero(t *testing.T) {
-	testBuf := [idByteLen]byte{}
+	testBuf := UrlId{}
 	encodeID(&testBuf, 0, 0)
 	for i := 0; i < idByteLen; i++ {
 		if testBuf[i] != 0x00 {
@@ -336,7 +336,7 @@ func TestEncodeID_Zero(t *testing.T) {
 }
 
 func TestEncodeID_Simple(t *testing.T) {
-	testBuf := [idByteLen]byte{}
+	testBuf := UrlId{}
 	err := encodeID(&testBuf, 1, 1)
 	if err != nil {
 		t.Error(err)
@@ -365,7 +365,7 @@ func TestEncodeID_Simple(t *testing.T) {
 }
 
 func TestEncodeID_Random(t *testing.T) {
-	testBuf := [idByteLen]byte{}
+	testBuf := UrlId{}
 	err := encodeID(&testBuf, 0x12345678, 0b000100100011010001010110)
 	if err != nil {
 		t.Error(err)
@@ -394,7 +394,7 @@ func TestEncodeID_Random(t *testing.T) {
 }
 
 func TestEncodeID_MaxSeq(t *testing.T) {
-	testBuf := [idByteLen]byte{}
+	testBuf := UrlId{}
 	maxSeq := uint32(math.Pow(2, 23) - 1)
 	err := encodeID(&testBuf, 0, maxSeq)
 	if err != nil {
@@ -403,7 +403,7 @@ func TestEncodeID_MaxSeq(t *testing.T) {
 }
 
 func TestEncodeID_TooLargeSeq(t *testing.T) {
-	testBuf := [idByteLen]byte{}
+	testBuf := UrlId{}
 	seqOverflow := uint32(math.Pow(2, 23))
 	err := encodeID(&testBuf, 0, seqOverflow)
 	if err == nil {

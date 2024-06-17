@@ -39,7 +39,7 @@ def main():
     for worker in workers:
         worker.join()
 
-    with open("shortened_urls.json", "w") as f:
+    with open("./shortened_urls.json", "w") as f:
         json.dump(results, f, indent=2)
 
 
